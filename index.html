@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CORPO AI — Chat</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="site-header">
+    <div class="brand">
+      <div class="logo">🤖</div>
+      <div class="brand-text">
+        <h1 class="title">CORPO AI</h1>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button class="clear-btn" id="clearBtn" title="Clear conversation">🗑 Clear Chat</button>
+    </div>
+  </header>
+
+  <!-- Chat Area -->
+  <main class="chat-shell">
+    <section class="chat-panel">
+      <!-- Chat messages -->
+      <div id="chatFeed" class="chat-feed" aria-live="polite" aria-label="Chat messages">
+        <div class="msg bot">
+          <div class="avatar">🤖</div>
+          <div class="bubble">
+            <div class="meta">CORPO AI</div>
+            <p>Hi! I’m CORPO AI. How can I help you today?</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Box -->
+      <form id="chatForm" class="composer" autocomplete="off">
+        <textarea
+          id="messageInput"
+          class="input"
+          placeholder="Type your message..."
+          rows="1"
+          required
+        ></textarea>
+
+        <div class="composer-actions">
+          <button type="submit" class="send-btn" aria-label="Send message">
+            <svg class="send-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <span>© <span id="year"></span> Raysprin</span>
+  </footer>
+
+  <!-- ================= JS ================= -->
+  <script>
+  
+  // --- Auto resize textarea ---
+  const ta = document.getElementById('messageInput');
+  function autoGrow() {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+  }
+  ta.addEventListener('input', autoGrow);
+
+  // --- Chat feed + clear ---
+  const chatFeed = document.getElementById('chatFeed');
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    chatFeed.innerHTML = `
+      <div class="msg bot">
+        <div class="avatar">🤖</div>
+        <div class="bubble">
+          <div class="meta">CORPO AI</div>
+          <p>New chat started. What would you like to do?</p>
+        </div>
+      </div>`;
+    ta.value = '';
+    autoGrow();
+  });
+
+  // --- Footer year ---
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // --- Functions for messages ---
+  function addMessage(role, text) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg ' + (role === 'user' ? 'user' : 'bot');
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = role === 'user' ? '🧑' : '🤖';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = role === 'user' ? 'You' : 'CORPO AI';
+
+    const p = document.createElement('p');
+    p.textContent = text;
+
+    bubble.appendChild(meta);
+    bubble.appendChild(p);
+    wrapper.appendChild(avatar);
+    wrapper.appendChild(bubble);
+    chatFeed.appendChild(wrapper);
+    chatFeed.scrollTop = chatFeed.scrollHeight;
+  }
+
+  function addThinking() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg bot thinking';
+    wrapper.innerHTML = `
+      <div class="avatar">🤖</div>
+      <div class="bubble">
+        <div class="meta">CORPO AI</div>
+        <p class="dots" aria-label="Thinking">
+          <span>.</span><span>.</span><span>.</span>
+        </p>
+      </div>`;
+    chatFeed.appendChild(wrapper);
+    chatFeed.scrollTop = chatFeed.scrollHeight;
+    return wrapper;
+  }
+
+  // --- Backend URL ---
+  // Using relative path makes it work both locally and after deployment
+  const backendURL = "https://api-backend-file.onrender.com/api/chat";
+
+  // --- Form submit ---
+  const form = document.getElementById('chatForm');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = ta.value.trim();
+    if (!text) return;
+
+    addMessage('user', text);
+    ta.value = '';
+    autoGrow();
+
+    const thinking = addThinking();
+
+    try {
+      const resp = await fetch(backendURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      });
+
+      if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
+      const data = await resp.json();
+      thinking.remove();
+      addMessage('bot', data.reply || "⚠️ No reply received from backend.");
+    } catch (err) {
+      thinking.remove();
+      addMessage('bot', '❌ Could not reach backend. Is the server running?');
+      console.error("Backend error:", err);
+    }
+  });
+
+  // --- Keyboard shortcut ---
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+</script>
+
+</body>
+</html>
